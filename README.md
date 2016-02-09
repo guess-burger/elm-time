@@ -30,7 +30,7 @@ into
 
 ## Goals
 
-This web-app was written as a way to learn Elm and make something I'd use everyday. 
+This web-app was written as a way to learn [Elm](http://elm-lang.org/) and make something I'd use everyday. 
 
 Theres no doubt that if you're employed then someone wants to know what you've spent your day doing!
 
