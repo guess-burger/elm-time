@@ -139,6 +139,7 @@ make_input address text =
 container_style =
   style
     [ ("display", "flex")
+    , ("height","100vh")
     ]
 
 item_style : Attribute
@@ -147,6 +148,7 @@ item_style =
     [ ("flex-grow", "1")
     , ("flex-shrink", "1")
     , ("flex-basis", "150px")
+    , ("height","100%")
     ]
 
 textarea_style : Attribute
