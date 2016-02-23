@@ -41,8 +41,8 @@ The problem comes at the end of a long day when you were meant to have left 10 m
 That's where elm-time comes in, simply make a note of when you start each task and it will do the maths for.
 
 ## TODO 
-* Add a total time
-** Filter out times for lunch/breaks in the total
+* ~~Add a total time~~
+  * Filter out times for lunch/breaks in the total
 * Add some style
 * Task suggestion
 * Save entered items in local storage

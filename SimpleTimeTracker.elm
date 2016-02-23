@@ -7,26 +7,30 @@ import String
 import Regex
 import Dict
 
-type alias Model = { text:String, times:List String }
+type alias Model = { text:String, times:List (String, Int), total:Int}
 
 main =
   StartApp.start { model = initial_model, view = view, update = update }
 
+-- Model
 
+initial_model : Model
 initial_model = 
-  { text="", times=[] }
+  { text="", times=[], total=0}
 
+-- Update
 
 update : String -> Model -> Model
 update newStr oldModel =
   let
     lines = String.split "\n" newStr
-    valid_times = List.filterMap maybe_valid_time lines
-    converted_times = to_thing valid_times
+    valid_time_entries = List.filterMap maybe_valid_time_entry lines
+    converted_times = to_worked_times valid_time_entries
+    total = List.foldl (\(_,b) c -> b+c) 0 converted_times
   in
-    {text=newStr, times=converted_times}
+    {text=newStr, times=converted_times, total=total}
 
-maybe_valid_time line =
+maybe_valid_time_entry line =
   let
     splitResult = Regex.split (Regex.AtMost 1) (Regex.regex " ") line
   in
@@ -72,13 +76,12 @@ valid_time_values x =
     then Just(hr, min, name)
     else Nothing
 
-to_thing x =
+to_worked_times x =
   x
     |> zip_self
     |> List.map to_minutes
     |> List.foldl time_collect Dict.empty
     |> Dict.toList
-    |> List.map format_time
 
 zip_self list =
   case list of
@@ -106,6 +109,24 @@ time_collect x dict =
       Nothing ->
         Dict.insert name mins dict
 
+-- View
+
+view : Address String -> Model -> Html
+view address model =
+  div [ container_style ]
+    [ div [ item_style ] [ make_input address model.text ]
+    , div [ item_style ] [ list model.times model.total ]
+    ]
+     
+list times total =
+  let
+    format = \attr x -> li [(style attr)] [ x |> format_time |> text]
+    formatted_times = List.map (format []) times
+    total_time = format [("color", "DarkGray")] ("Total", total)
+    list_items = List.append formatted_times [total_time]
+  in
+  ul [] list_items
+
 format_time x =
   let
     (name, total_mins) = x
@@ -115,17 +136,6 @@ format_time x =
     string_mins = toString mins
   in
     string_hrs ++ "h " ++ string_mins ++ "m - " ++ name
-
-
-view : Address String -> Model -> Html
-view address model =
-  div [ container_style ]
-    [ div [ item_style ] [ make_input address model.text ]
-    , div [ item_style ] [ list model.times ]
-    ]
-     
-list n =
-  ul [] (List.map (\x -> li [] [text x]) n)
 
 make_input address text =
   textarea
