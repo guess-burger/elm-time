@@ -1,8 +1,7 @@
-import Html exposing (Html, Attribute, text, toElement, div, textarea, ul, li)
+import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (on, targetValue)
-import Signal exposing (Address)
-import StartApp.Simple as StartApp
+import Html.Events exposing (onInput)
+import Html.App as Html
 import String
 import Regex
 import Dict
@@ -10,25 +9,34 @@ import Dict
 type alias Model = { text:String, times:List (String, Int), total:Int}
 
 main =
-  StartApp.start { model = initial_model, view = view, update = update }
+  Html.program
+      { init = init
+      , update = update
+      , view = view
+      , subscriptions = \_ -> Sub.none
+      }
 
 -- Model
 
-initial_model : Model
-initial_model = 
-  { text="", times=[], total=0}
+type Msg = Change String
+
+init : (Model, Cmd Msg)
+init =
+  ({ text="", times=[], total=0}, Cmd.none)
 
 -- Update
 
-update : String -> Model -> Model
-update newStr oldModel =
-  let
-    lines = String.split "\n" newStr
-    valid_time_entries = List.filterMap maybe_valid_time_entry lines
-    converted_times = to_worked_times valid_time_entries
-    total = List.foldl (\(_,b) c -> b+c) 0 converted_times
-  in
-    {text=newStr, times=converted_times, total=total}
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg oldModel =
+    case msg of
+        Change newText ->
+            let
+                lines = String.split "\n" newText
+                valid_time_entries = List.filterMap maybe_valid_time_entry lines
+                converted_times = to_worked_times valid_time_entries
+                total = List.foldl (\(_,b) c -> b+c) 0 converted_times
+            in
+                ({text=newText, times=converted_times, total=total}, Cmd.none)
 
 maybe_valid_time_entry line =
   let
@@ -111,10 +119,10 @@ time_collect x dict =
 
 -- View
 
-view : Address String -> Model -> Html
-view address model =
+view : Model -> Html Msg
+view model =
   div [ container_style ]
-    [ div [ item_style ] [ make_input address model.text ]
+    [ div [ item_style ] [ make_input model.text ]
     , div [ item_style ] [ list_times model.times model.total ]
     ]
      
@@ -137,11 +145,11 @@ format_time x =
   in
     string_hrs ++ "h " ++ string_mins ++ "m - " ++ name
 
-make_input address text =
+make_input text =
   textarea
     [ placeholder "0900 Example task"
     , value text
-    , on "input" targetValue (Signal.message address)
+    , onInput Change
     , textarea_style
     ]
     []
@@ -152,7 +160,7 @@ container_style =
     , ("height","100%")
     ]
 
-item_style : Attribute
+item_style : Attribute msg
 item_style =
   style
     [ ("flex-grow", "1")
@@ -161,7 +169,7 @@ item_style =
     , ("height","100%")
     ]
 
-textarea_style : Attribute
+textarea_style : Attribute msg
 textarea_style =
   style
     [ ("resize", "none")
