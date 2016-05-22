@@ -115,10 +115,10 @@ view : Address String -> Model -> Html
 view address model =
   div [ container_style ]
     [ div [ item_style ] [ make_input address model.text ]
-    , div [ item_style ] [ list model.times model.total ]
+    , div [ item_style ] [ list_times model.times model.total ]
     ]
      
-list times total =
+list_times times total =
   let
     format = \attr x -> li [(style attr)] [ x |> format_time |> text]
     formatted_times = List.map (format []) times
@@ -149,7 +149,7 @@ make_input address text =
 container_style =
   style
     [ ("display", "flex")
-    , ("height","100vh")
+    , ("height","100%")
     ]
 
 item_style : Attribute

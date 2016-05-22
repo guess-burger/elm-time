@@ -1,5 +1,9 @@
-elm-stuff
-elm.js
-elm.min.js
 */.DS_Store
 .DS_Store
+
+.idea
+elm-stuff
+
+elm.js
+elm.min.js
+index.html
