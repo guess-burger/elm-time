@@ -1,28 +1,44 @@
+port module SimpleTimeTracker exposing (..)
+
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onInput)
-import Html.App as Html
+import Html.App as App
 import String
 import Regex
 import Dict
 
 type alias Model = { text:String, times:List (String, Int), total:Int}
 
+main : Program (Maybe Model)
 main =
-  Html.program
+  App.programWithFlags
       { init = init
-      , update = update
+      , update = (\msg model -> withSetStorage (update msg model))
       , view = view
       , subscriptions = \_ -> Sub.none
       }
+
+
+port setStorage : Model -> Cmd msg
+
+{-- borrowed from elm-todomvc --}
+withSetStorage : ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+withSetStorage (model, cmds) =
+  ( model, Cmd.batch [ setStorage model, cmds ] )
 
 -- Model
 
 type Msg = Change String
 
-init : (Model, Cmd Msg)
-init =
-  ({ text="", times=[], total=0}, Cmd.none)
+emptyModel : Model
+emptyModel =
+  { text="", times=[], total=0}
+
+init : Maybe Model -> ( Model, Cmd Msg )
+init savedModel =
+    (Maybe.withDefault emptyModel savedModel , Cmd.none)
+
 
 -- Update
 

@@ -45,5 +45,5 @@ That's where elm-time comes in, simply make a note of when you start each task a
   * Filter out times for lunch/breaks in the total
 * Add some style
 * Task suggestion
-* Save entered items in local storage
+* ~~Save entered items in local storage~~
 * Display JIRA decimal time values along with the more human readable "1h 15m" format
