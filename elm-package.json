@@ -2,6 +2,7 @@
     "version": "0.2.0",
     "summary": "A simple time-tracker",
     "repository": "https://github.com/guess-burger/elm-time.git",
+    "license": "",
     "source-directories": [
         "."
     ],

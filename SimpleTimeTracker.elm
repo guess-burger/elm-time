@@ -2,45 +2,86 @@ port module SimpleTimeTracker exposing (..)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onInput)
+import Html.Events exposing (onInput, onClick)
 import Html.App as App
 import String
 import Regex
 import Dict
+import Json.Decode exposing (Decoder, decodeValue, object2, tuple2, (:=), string, list, int, null)
 
-type alias Model = { text:String, times:List (String, Int), total:Int}
 
-main : Program (Maybe Model)
+main : Program (Maybe Json.Decode.Value)
 main =
   App.programWithFlags
       { init = init
-      , update = (\msg model -> withSetStorage (update msg model))
+      , update = update
       , view = view
       , subscriptions = \_ -> Sub.none
       }
 
 
-port setStorage : Model -> Cmd msg
+port setStorage : StorageModel -> Cmd msg
 
-{-- borrowed from elm-todomvc --}
-withSetStorage : ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
-withSetStorage (model, cmds) =
-  ( model, Cmd.batch [ setStorage model, cmds ] )
 
--- Model
+-- MODEL
 
-type Msg = Change String
+type alias TimeGroup =
+    { times:List (String, Int)
+    , total:Int
+    }
+
+type alias Model =
+    { text:String
+    , nonWorkItems:List String
+    , workTimes:TimeGroup
+    , nonWorkTimes:TimeGroup
+    }
+
+type alias StorageModel =
+    { text:String
+    , nonWorkItems:List String
+    }
+
 
 emptyModel : Model
 emptyModel =
-  { text="", times=[], total=0}
+    { text="", nonWorkItems=[], workTimes=emptyTimeGroup, nonWorkTimes=emptyTimeGroup }
 
-init : Maybe Model -> ( Model, Cmd Msg )
+emptyTimeGroup : TimeGroup
+emptyTimeGroup =
+    { times=[], total=0 }
+
+
+init : Maybe Json.Decode.Value -> ( Model, Cmd Msg )
 init savedModel =
-    (Maybe.withDefault emptyModel savedModel , Cmd.none)
+    (decode savedModel , Cmd.none)
+
+decode savedModel =
+    case savedModel of
+        Nothing ->
+            emptyModel
+        Just jsonModel ->
+            case decodeValue decoder jsonModel of
+                Ok {text, nonWorkItems} ->
+                    calculate_times text { emptyModel | nonWorkItems=nonWorkItems }
+                Err _ ->
+                    emptyModel
+
+decoder : Decoder StorageModel
+decoder =
+    object2 StorageModel
+        ( "text" := string )
+        ( "nonWorkItems" := Json.Decode.list string)
 
 
--- Update
+-- UPDATE
+
+type Msg
+    = Change String
+    | Work String
+    | NonWork String
+    | Over String
+    | Out String
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg oldModel =
@@ -51,8 +92,28 @@ update msg oldModel =
                 valid_time_entries = List.filterMap maybe_valid_time_entry lines
                 converted_times = to_worked_times valid_time_entries
                 total = List.foldl (\(_,b) c -> b+c) 0 converted_times
+                cmd = store newText oldModel.nonWorkItems
             in
-                ({text=newText, times=converted_times, total=total}, Cmd.none)
+                ({ oldModel | text=newText, workTimes={ times=converted_times, total=total } }, cmd )
+        Work item ->
+            (oldModel, Cmd.none)
+        NonWork item ->
+            (oldModel, Cmd.none)
+        Over item ->
+            (oldModel, Cmd.none)
+        Out item ->
+            (oldModel, Cmd.none)
+
+calculate_times newText model =
+    -- Ignore nonWork for the tme being!
+    let
+        lines = String.split "\n" newText
+        valid_time_entries = List.filterMap maybe_valid_time_entry lines
+        converted_times = to_worked_times valid_time_entries
+        total = List.foldl (\(_,b) c -> b+c) 0 converted_times
+        workTimes = { times=converted_times, total=total }
+    in
+        { model | text=newText, workTimes=workTimes }
 
 maybe_valid_time_entry line =
   let
@@ -133,17 +194,24 @@ time_collect x dict =
       Nothing ->
         Dict.insert name mins dict
 
--- View
+store text nonWorkItems =
+    setStorage { text=text, nonWorkItems=nonWorkItems }
+
+
+-- VIEW
 
 view : Model -> Html Msg
 view model =
   div [ container_style ]
     [ div [ item_style ] [ make_input model.text ]
-    , div [ item_style ] [ list_times model.times model.total ]
+    , div [ item_style ] [ list_times model.workTimes ]
+    --, p [ ] [ span [ class "icon-coffee" ] [ ], text "coffee" ]
+    --, p [ ] [ span [ class "icon-briefcase" ] [ ], text "briefcase" ]
     ]
      
-list_times times total =
+list_times { times, total } =
   let
+    --format = \attr x -> li [(style attr), onClick (NonWork (fst x)) ] [ x |> format_time |> text]
     format = \attr x -> li [(style attr)] [ x |> format_time |> text]
     formatted_times = List.map (format []) times
     total_time = format [("color", "DarkGray")] ("Total", total)
