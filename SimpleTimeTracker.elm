@@ -76,12 +76,15 @@ decoder =
 
 -- UPDATE
 
+type Group
+    = Work
+    | NonWork
+
 type Msg
     = Change String
-    | Work String
-    | NonWork String
-    | Over String
-    | Out String
+    | Move Group String
+    | Enter Group String
+    | Out Group String
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg oldModel =
@@ -89,20 +92,20 @@ update msg oldModel =
         Change newText ->
             let
                 newModel = calculate_times newText oldModel
-                cmd = store newText oldModel.nonWorkItems
+                saveCmd = store newText oldModel.nonWorkItems
             in
-                ( newModel, cmd )
-        Work item ->
+                ( newModel, saveCmd )
+        Move NonWork item ->
             (oldModel, Cmd.none)
-        NonWork item ->
+        Move Work item ->
             (oldModel, Cmd.none)
-        Over item ->
+        Enter group item ->
             (oldModel, Cmd.none)
-        Out item ->
+        Out group item ->
             (oldModel, Cmd.none)
 
 calculate_times newText model =
-    -- Ignore nonWork for the tme being!
+    -- TODO move any items in the nonWork list to the nonWork group
     let
         lines = String.split "\n" newText
         valid_time_entries = List.filterMap maybe_valid_time_entry lines
@@ -199,61 +202,42 @@ store text nonWorkItems =
 
 view : Model -> Html Msg
 view model =
-  div [ container_style ]
-    [ div [ item_style ] [ make_input model.text ]
-    , div [ item_style ] [ list_times model.workTimes ]
-    --, p [ ] [ span [ class "icon-coffee" ] [ ], text "coffee" ]
-    --, p [ ] [ span [ class "icon-briefcase" ] [ ], text "briefcase" ]
-    ]
-     
-list_times { times, total } =
-  let
-    --format = \attr x -> li [(style attr), onClick (NonWork (fst x)) ] [ x |> format_time |> text]
-    format = \attr x -> li [(style attr)] [ x |> format_time |> text]
-    formatted_times = List.map (format []) times
-    total_time = format [("color", "DarkGray")] ("Total", total)
-    list_items = List.append formatted_times [total_time]
-  in
-  ul [] list_items
-
-format_time x =
-  let
-    (name, total_mins) = x
-    hrs = total_mins // 60
-    mins = total_mins % 60
-    string_hrs = toString hrs
-    string_mins = toString mins
-  in
-    string_hrs ++ "h " ++ string_mins ++ "m - " ++ name
+    div [ class "container" ]
+        [ div [ class "section" ] [ make_input model.text ]
+        , div [ class "section" ] [ list_times model ]
+        ]
 
 make_input text =
-  textarea
-    [ placeholder "0900 Example task"
-    , value text
-    , onInput Change
-    , textarea_style
-    ]
-    []
+    textarea
+        [ placeholder "0900 Example task"
+        , value text
+        , onInput Change
+        ]
+        []
+     
+list_times model =
+    ul []
+        [ times_section model.workTimes "icon-briefcase" "Work Items " NonWork
+        ,  times_section model.nonWorkTimes "icon-coffee" "Non-Work Items " Work
+        ]
 
-container_style =
-  style
-    [ ("display", "flex")
-    , ("height","100%")
-    ]
+times_section { times, total } icon groupName test =
+    let
+        --format = \attr x -> li [(style attr), onClick (NonWork (fst x)) ] [ x |> format_time |> text]
+        format = \x -> li [ onClick (Move test (fst x)) ] [ x |> format_time |> text ]
+        formatted_times = List.map format times
+    in
+        li []
+            [ (groupName, total) |> format_time |> text
+            , span [ class icon ] []
+            , ul [] formatted_times
+            ]
 
-item_style : Attribute msg
-item_style =
-  style
-    [ ("flex-grow", "1")
-    , ("flex-shrink", "1")
-    , ("flex-basis", "150px")
-    , ("height","100%")
-    ]
-
-textarea_style : Attribute msg
-textarea_style =
-  style
-    [ ("resize", "none")
-    , ("height","100%")
-    , ("width", "100%")
-    ]
+format_time (name, total_mins) =
+    let
+        hrs = total_mins // 60
+        mins = total_mins % 60
+        string_hrs = toString hrs
+        string_mins = toString mins
+    in
+        string_hrs ++ "h " ++ string_mins ++ "m - " ++ name

@@ -49,3 +49,21 @@
 .icon-check-empty:before { content: '\e801'; } /* '' */
 .icon-check:before { content: '\e802'; } /* '' */
 .icon-briefcase:before { content: '\e804'; } /* '' */
+
+div.container {
+    display: flex;
+    height: 100%;
+}
+
+div.section {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 150px;
+    height: 100%;
+}
+
+textarea {
+    resize: none;
+    height: 100%;
+    width: 100%;
+}
