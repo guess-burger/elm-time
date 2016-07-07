@@ -88,13 +88,10 @@ update msg oldModel =
     case msg of
         Change newText ->
             let
-                lines = String.split "\n" newText
-                valid_time_entries = List.filterMap maybe_valid_time_entry lines
-                converted_times = to_worked_times valid_time_entries
-                total = List.foldl (\(_,b) c -> b+c) 0 converted_times
+                newModel = calculate_times newText oldModel
                 cmd = store newText oldModel.nonWorkItems
             in
-                ({ oldModel | text=newText, workTimes={ times=converted_times, total=total } }, cmd )
+                ( newModel, cmd )
         Work item ->
             (oldModel, Cmd.none)
         NonWork item ->
