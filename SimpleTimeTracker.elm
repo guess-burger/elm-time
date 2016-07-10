@@ -1,5 +1,6 @@
 port module SimpleTimeTracker exposing (..)
 
+import List exposing ( (::) )
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onInput, onClick)
@@ -83,8 +84,6 @@ type Group
 type Msg
     = Change String
     | Move Group String
-    | Enter Group String
-    | Out Group String
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg oldModel =
@@ -96,13 +95,22 @@ update msg oldModel =
             in
                 ( newModel, saveCmd )
         Move NonWork item ->
-            (oldModel, Cmd.none)
+            -- Move work item to non-work
+            let
+                nonWork = item :: oldModel.nonWorkItems
+                newModel = calculate_times oldModel.text { oldModel | nonWorkItems = nonWork }
+                saveCmd = store newModel.text nonWork
+            in
+            (newModel, saveCmd)
         Move Work item ->
-            (oldModel, Cmd.none)
-        Enter group item ->
-            (oldModel, Cmd.none)
-        Out group item ->
-            (oldModel, Cmd.none)
+            -- Move non-work item to work
+            let
+                nonWork = List.filter (\x -> x /= item) oldModel.nonWorkItems
+                newModel = calculate_times oldModel.text { oldModel | nonWorkItems = nonWork }
+                saveCmd = store newModel.text nonWork
+            in
+            (newModel, saveCmd)
+
 
 calculate_times newText model =
     -- TODO move any items in the nonWork list to the nonWork group
@@ -110,10 +118,13 @@ calculate_times newText model =
         lines = String.split "\n" newText
         valid_time_entries = List.filterMap maybe_valid_time_entry lines
         converted_times = to_worked_times valid_time_entries
-        total = List.foldl (\(_,b) c -> b+c) 0 converted_times
-        workTimes = { times=converted_times, total=total }
+        partition = \(x,_) -> List.member x model.nonWorkItems
+        ( nonWorkItems, workItems ) = List.partition partition converted_times
+        find_total = \x -> List.foldl (\(_,b) c -> b+c) 0 x
+        workTimes = { times=workItems, total=find_total workItems }
+        nonWorkTimes = { times=nonWorkItems, total=find_total nonWorkItems }
     in
-        { model | text=newText, workTimes=workTimes }
+        { model | text=newText, workTimes=workTimes, nonWorkTimes=nonWorkTimes }
 
 maybe_valid_time_entry line =
   let
@@ -162,37 +173,37 @@ valid_time_values x =
     else Nothing
 
 to_worked_times x =
-  x
-    |> zip_self
-    |> List.map to_minutes
-    |> List.foldl time_collect Dict.empty
-    |> Dict.toList
+    x
+        |> zip_self
+        |> List.map to_minutes
+        |> List.foldl time_collect Dict.empty
+        |> Dict.toList
 
 zip_self list =
-  case list of
-    hl::tl ->
-      List.map2 (\a b -> (a, b)) list tl
-    [] ->
-      []
+    case list of
+        hl::tl ->
+            List.map2 (\a b -> (a, b)) list tl
+        [] ->
+            []
 
 to_minutes x =
-  let
-    (before, after) = x
-    (b_hr, b_min, b_name) = before
-    (a_hr, a_min, _) = after
-    mins = (a_hr - b_hr) * 60 + a_min - b_min
-  in
-    (b_name, mins)
+    let
+        (before, after) = x
+        (b_hr, b_min, b_name) = before
+        (a_hr, a_min, _) = after
+        mins = (a_hr - b_hr) * 60 + a_min - b_min
+    in
+        (b_name, mins)
 
 time_collect x dict =
-  let
-    (name, mins) = x
-  in
-    case Dict.get name dict of
-      Just total ->
-        Dict.insert name (total+mins) dict
-      Nothing ->
-        Dict.insert name mins dict
+    let
+        (name, mins) = x
+    in
+        case Dict.get name dict of
+            Just total ->
+                Dict.insert name (total+mins) dict
+            Nothing ->
+                Dict.insert name mins dict
 
 store text nonWorkItems =
     setStorage { text=text, nonWorkItems=nonWorkItems }
@@ -223,7 +234,6 @@ list_times model =
 
 times_section { times, total } icon groupName test =
     let
-        --format = \attr x -> li [(style attr), onClick (NonWork (fst x)) ] [ x |> format_time |> text]
         format = \x -> li [ onClick (Move test (fst x)) ] [ x |> format_time |> text ]
         formatted_times = List.map format times
     in
