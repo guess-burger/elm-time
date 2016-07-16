@@ -3,12 +3,13 @@ port module SimpleTimeTracker exposing (..)
 import List exposing ( (::) )
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onInput, onClick)
+import Html.Events exposing (onInput, onClick, onMouseEnter, onMouseLeave)
 import Html.App as App
 import String
 import Regex
 import Dict
 import Json.Decode exposing (Decoder, decodeValue, object2, tuple2, (:=), string, list, int, null)
+import Debug
 
 
 main : Program (Maybe Json.Decode.Value)
@@ -27,8 +28,12 @@ port setStorage : StorageModel -> Cmd msg
 -- MODEL
 
 type alias TimeGroup =
+    -- Should this be a Dict String (Int, Boolean)
+    -- But then how would the update work because it would need the times and the
+    -- update status
     { times:List (String, Int)
     , total:Int
+    , active:Bool
     }
 
 type alias Model =
@@ -50,7 +55,7 @@ emptyModel =
 
 emptyTimeGroup : TimeGroup
 emptyTimeGroup =
-    { times=[], total=0 }
+    { times=[], total=0, active=False }
 
 
 init : Maybe Json.Decode.Value -> ( Model, Cmd Msg )
@@ -84,6 +89,9 @@ type Group
 type Msg
     = Change String
     | Move Group String
+    | Enter Group
+    | Leave Group
+
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg oldModel =
@@ -110,10 +118,19 @@ update msg oldModel =
                 saveCmd = store newModel.text nonWork
             in
             (newModel, saveCmd)
+        Enter group ->
+            let
+                newModel = set_group_active oldModel group True
+            in
+            ( newModel, Cmd.none )
+        Leave group ->
+            let
+                newModel = set_group_active oldModel group False
+            in
+            ( newModel, Cmd.none )
 
 
 calculate_times newText model =
-    -- TODO move any items in the nonWork list to the nonWork group
     let
         lines = String.split "\n" newText
         valid_time_entries = List.filterMap maybe_valid_time_entry lines
@@ -121,8 +138,8 @@ calculate_times newText model =
         partition = \(x,_) -> List.member x model.nonWorkItems
         ( nonWorkItems, workItems ) = List.partition partition converted_times
         find_total = \x -> List.foldl (\(_,b) c -> b+c) 0 x
-        workTimes = { times=workItems, total=find_total workItems }
-        nonWorkTimes = { times=nonWorkItems, total=find_total nonWorkItems }
+        workTimes = { times=workItems, total=find_total workItems, active=model.workTimes.active  }
+        nonWorkTimes = { times=nonWorkItems, total=find_total nonWorkItems, active=model.nonWorkTimes.active }
     in
         { model | text=newText, workTimes=workTimes, nonWorkTimes=nonWorkTimes }
 
@@ -208,6 +225,19 @@ time_collect x dict =
 store text nonWorkItems =
     setStorage { text=text, nonWorkItems=nonWorkItems }
 
+set_group_active model group isActive =
+    if group == Work then
+        let
+            items = model.workTimes
+            updatedWorkItems = { items | active = isActive }
+        in
+            { model | workTimes = updatedWorkItems }
+    else
+        let
+            items = model.nonWorkTimes
+            updatedNonWorkTimes = { items | active = isActive }
+        in
+            { model | nonWorkTimes = updatedNonWorkTimes }
 
 -- VIEW
 
@@ -228,20 +258,28 @@ make_input text =
      
 list_times model =
     ul []
-        [ times_section model.workTimes "icon-briefcase" "Work Items " NonWork
-        ,  times_section model.nonWorkTimes "icon-coffee" "Non-Work Items " Work
+        [ times_section model.workTimes Work "icon-briefcase" "Work Items " NonWork "icon-coffee"
+        ,  times_section model.nonWorkTimes NonWork "icon-coffee" "Non-Work Items " Work "icon-briefcase"
         ]
 
-times_section { times, total } icon groupName test =
+times_section { times, total, active } group groupIcon groupName otherGroup otherIcon  =
     let
-        format = \x -> li [ onClick (Move test (fst x)) ] [ x |> format_time |> text ]
+        format = time_to_li active otherIcon otherGroup
         formatted_times = List.map format times
     in
-        li []
+        li [ onMouseEnter ( Enter group ), onMouseLeave ( Leave group ) ]
             [ (groupName, total) |> format_time |> text
-            , span [ class icon ] []
+            , span [ class groupIcon ] []
             , ul [] formatted_times
             ]
+
+time_to_li active icon group time =
+    let
+        itemText = time |> format_time |> text
+        actions = [ onClick (Move group (fst time)) ]
+        content = if active then [ itemText, button actions [ text "Move to ", i [ class icon ] [] ] ] else [ itemText ]
+    in
+        li [] content
 
 format_time (name, total_mins) =
     let
