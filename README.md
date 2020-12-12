@@ -26,7 +26,7 @@ into
 * 3h 15m - Ticket 123
 * 1h 30m - Ticket 125
 
-[Try it yourself!](http://guess-burger.github.io/time_tracker.html)
+[Try it yourself!](http://guess-burger.github.io/time-tracker/time-tracker.html)
 
 ## Goals
 
